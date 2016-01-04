@@ -88,7 +88,7 @@ from sklearn.mixture import GMM
 
 
 # TODO: First we reduce the data to two dimensions using PCA to capture variation
-reduced_data = PCA(n_components=2).fit(data).components_
+reduced_data = PCA(n_components=2).fit_transform(data)
 print reduced_data[:10]  # print upto 10 elements
 
 
@@ -140,7 +140,6 @@ plt.ylim(y_min, y_max)
 plt.xticks(())
 plt.yticks(())
 plt.show()
-
 
 # **7)** What are the central objects in each cluster? Describe them as customers.
 
