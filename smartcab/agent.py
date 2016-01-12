@@ -17,17 +17,20 @@ class LearningAgent(Agent):
         self.env = env
         self.state = None
         self.next_waypoint = None
-        self.qhat = defaultdict(lambda: dict((e, 0) for e in env.valid_actions))
         self.counter_cw = np.array([[0,1],[-1,0]])
         self.clockwise = np.array([[0, -1],[1,0]])
         self.gamma = 0.5
-
+        self.qhat = None
+        self.episilon = None
+        self.old_location = []
+        self.old_action = None
 
         # TODO: Initialize any additional variables here
 
     def reset(self, destination=None):
+        self.qhat = defaultdict(lambda: dict((e, 0) for e in self.env.valid_actions))
         self.planner.route_to(destination)
-        # TODO: Prepare for a new trip; reset any variables here, if required
+        self.step = 0
 
     def update(self, t):
         # Gather inputs
@@ -37,34 +40,46 @@ class LearningAgent(Agent):
         self.state = self.env.agent_states[self]
         location = np.array(self.state['location'])
         heading = np.array(self.state['heading'])
+        self.step += 1
 
-        # return dict of actions sorted by maximum utility
+        # return dict of actions sorted by maximum utility descending
         sorter = lambda d : sorted(d.items(), key=operator.itemgetter(1), reverse=True)
 
         # return list of all actions with equal maximum utility
-        dups = lambda x, arg : [k for k,v in x.iteritems() if v == arg]
+        dups = lambda d, u: [k for k, v in d.iteritems() if v == u]
 
         # find possible new locations by adding the current location coordinates to all rotated headings
-        new_locations = {'left': tuple(location + heading.dot(self.counter_cw))
-                        ,'right': tuple(location + heading.dot(self.clockwise))
-                        ,'forward': tuple(location + heading)
+        new_locations = {'left': tuple(location + heading.dot(self.counter_cw)),
+                         'right': tuple(location + heading.dot(self.clockwise)),
+                         'forward': tuple(location + heading)
                         }
 
         # Policy is to select action based on estimated maximum utility of the next state
 
         # sort the current Q values at all possible new locations
-        scores = {'left': sorter(self.qhat[new_locations['left']])[0][1]
-                 ,'right': sorter(self.qhat[new_locations['right']])[0][1]
-                 ,'forward': sorter(self.qhat[new_locations['forward']])[0][1]
+        scores = {'left': sorter(self.qhat[new_locations['left']])[0][1],
+                  'right': sorter(self.qhat[new_locations['right']])[0][1],
+                  'forward': sorter(self.qhat[new_locations['forward']])[0][1]
                  }
 
-        # print sorter(scores)
+        if list(location) == self.old_location:
+            print self.old_action
+            print inputs
 
-        # return random choice of action from list of actions with equal maximum utility
-        action = choice(dups(scores, sorter(scores)[0][1]))
+        # calculate learning rate from step so that actions are random initially and learning rate increases with time.
+        alpha_t = 1./self.step**2
 
-        # action = random.choice([e for e in self.env.valid_actions if e is not None])
+        if random.random() > 1 - alpha_t:
+            # choose a completely random action if draw from a uniform distribution is > 1 - alpha_t
+            action = random.choice([e for e in self.env.valid_actions if e is not None])
+        else:
+            # choose action randomly from all actions with equal maximum utility
+            action = choice(dups(scores, sorter(scores)[0][1]))
 
+        self.old_action = action
+        self.old_location = list(location)
+        if inputs['light'] == 'red' and inputs['left'] == None:
+            action = 'right'
         # Execute action and get reward
         reward = self.env.act(self, action)
 
@@ -76,7 +91,10 @@ class LearningAgent(Agent):
 
         # calculate discounted utility of current state
         self.qhat[tuple(location)][action] = reward + self.gamma * scores[qhat]
-        print "location {} rewards {}".format(self.state['location'], self.qhat[self.state['location']], )
+        if self.state['location'] == self.state['destination']:
+            print 'Destination found in %d steps.\n' %self.step
+        # else:
+        #     print "location {} rewards {}".format(self.state['location'], self.qhat[self.state['location']], )
 
         # TODO: Learn policy based on state, action, reward
 
