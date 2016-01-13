@@ -42,13 +42,13 @@ class LearningAgent(Agent):
         heading = np.array(self.state['heading'])
         self.step += 1
 
-        # return dict of actions sorted by maximum utility descending
+        # sort a dict of actions by maximum utility descending
         sorter = lambda d : sorted(d.items(), key=operator.itemgetter(1), reverse=True)
 
-        # return list of all actions with equal maximum utility
+        # given a dict of action/utility pairs, return a list of all actions with equal utility
         dups = lambda d, u: [k for k, v in d.iteritems() if v == u]
 
-        # find possible new locations by adding the current location coordinates to all rotated headings
+        # calculate next locations by adding the current location coordinates to rotated headings
         new_locations = {'left': tuple(location + heading.dot(self.counter_cw)),
                          'right': tuple(location + heading.dot(self.clockwise)),
                          'forward': tuple(location + heading)
@@ -56,7 +56,7 @@ class LearningAgent(Agent):
 
         # Policy is to select action based on estimated maximum utility of the next state
 
-        # sort the current Q values at all possible new locations
+        # dict of sorted current Q(a',s') values at next locations
         scores = {'left': sorter(self.qhat[new_locations['left']])[0][1],
                   'right': sorter(self.qhat[new_locations['right']])[0][1],
                   'forward': sorter(self.qhat[new_locations['forward']])[0][1]
@@ -66,20 +66,24 @@ class LearningAgent(Agent):
             print self.old_action
             print inputs
 
-        # calculate learning rate from step so that actions are random initially and learning rate increases with time.
+        # calculate the learning rate for each step so that actions are random initially and
+        # the learning rate increases with time.
         alpha_t = 1./self.step**2
 
         if random.random() > 1 - alpha_t:
             # choose a completely random action if draw from a uniform distribution is > 1 - alpha_t
             action = random.choice([e for e in self.env.valid_actions if e is not None])
         else:
-            # choose action randomly from all actions with equal maximum utility
+            # choose from all actions with equal maximum utility randomly
             action = choice(dups(scores, sorter(scores)[0][1]))
 
         self.old_action = action
         self.old_location = list(location)
+
+        # avoid 'None' action by turning right on red
         if inputs['light'] == 'red' and inputs['left'] == None:
             action = 'right'
+
         # Execute action and get reward
         reward = self.env.act(self, action)
 
@@ -91,12 +95,12 @@ class LearningAgent(Agent):
 
         # calculate discounted utility of current state
         self.qhat[tuple(location)][action] = reward + self.gamma * scores[qhat]
+
+
         if self.state['location'] == self.state['destination']:
             print 'Destination found in %d steps.\n' %self.step
         # else:
         #     print "location {} rewards {}".format(self.state['location'], self.qhat[self.state['location']], )
-
-        # TODO: Learn policy based on state, action, reward
 
         # print "LearningAgent.update(): deadline = {}, inputs = {}, action = {}, reward = {}".format(deadline, inputs, action, reward)  # [debug]
 
