@@ -43,13 +43,13 @@ def explore_city_data(city_data):
     # Calculate median price?
     # Calculate standard deviation?
 
-    number_of_houses = housing_features.shape[0]
-    number_of_features = housing_features.shape[1]
-    min_price = np.min(housing_prices)
-    max_price = np.max(housing_prices)
-    mean_price = np.mean(housing_prices)
-    median_price = np.median(housing_prices)
-    std_dev = np.std(housing_prices)
+    print "number of houses : %d" % housing_features.shape[0]
+    print "number of features : %d" % housing_features.shape[1]
+    print "min price : %d" % np.min(housing_prices)
+    print "max price : %d" % np.max(housing_prices)
+    print "mean price : %.2f" % np.mean(housing_prices)
+    print "median price : %.2f" % np.median(housing_prices)
+    print "std dev : %.2f" % np.std(housing_prices)
 
     return
 
@@ -103,19 +103,29 @@ def learning_curve(depth, X_train, y_train, X_test, y_test):
 
 
     # Plot learning curve graph
-    learning_curve_graph(sizes, train_err, test_err)
+    learning_curve_graph(sizes, train_err, test_err, depth)
 
 
-def learning_curve_graph(sizes, train_err, test_err):
+fig, axes = pl.subplots(5,2, sharex=True, sharey=True)
+
+def learning_curve_graph(sizes, train_err, test_err, depth):
     """Plot training and test error as a function of the training size."""
 
-    pl.figure()
-    pl.title('Decision Trees: Performance vs Training Size')
-    pl.plot(sizes, test_err, lw=2, label = 'test error')
-    pl.plot(sizes, train_err, lw=2, label = 'training error')
-    pl.legend()
-    pl.xlabel('Training Size')
-    pl.ylabel('Error')
+    # pl.figure()
+    # pl.title('Decision Trees: Performance vs Training Size Depth=%d' % depth)
+    if depth < 6:
+        y = 0
+        x = depth-1
+    else:
+        y = 1
+        x = depth-6
+    axes[x,y].set_title('Depth=%d' % depth)
+    axes[x,y].plot(sizes, test_err, lw=2, label = 'test error')
+    axes[x,y].plot(sizes, train_err, lw=2, label = 'training error')
+    axes[x,y].legend()
+    if depth%5==0:
+        axes[x,y].set_xlabel('Training Size')
+    axes[x,y].set_ylabel('Error')
     pl.show()
 
 
@@ -156,6 +166,7 @@ def model_complexity_graph(max_depth, train_err, test_err):
     pl.legend()
     pl.xlabel('Max Depth')
     pl.ylabel('Error')
+    pl.grid(which='both')
     pl.show()
 
 
@@ -177,19 +188,20 @@ def fit_predict_model(city_data):
     # 1. Find an appropriate performance metric. This should be the same as the
     # one used in your performance_metric procedure above:
     # http://scikit-learn.org/stable/modules/generated/sklearn.metrics.make_scorer.html
-    mse_scorer = make_scorer(mean_squared_error)
+    mse_scorer = make_scorer(mean_squared_error, greater_is_better=False)
 
     # 2. We will use grid search to fine tune the Decision Tree Regressor and
     # obtain the parameters that generate the best training performance. Set up
     # the grid search object here.
     # http://scikit-learn.org/stable/modules/generated/sklearn.grid_search.GridSearchCV.html#sklearn.grid_search.GridSearchCV
 
-    reg = GridSearchCV(regressor, parameters, scoring=mse_scorer)
+    reg = GridSearchCV(regressor, parameters, scoring=mse_scorer, verbose=1)
     # Fit the learner to the training data to obtain the best parameter set
     print "Final Model: "
     print reg.fit(X, y)
 
     # Use the model to predict the output of a particular sample
+    print 'best max depth : %d' % reg.best_params_['max_depth']
     x = [11.95, 0.00, 18.100, 0, 0.6590, 5.6090, 90.00, 1.385, 24, 680.0, 20.20, 332.09, 12.13]
     y = reg.predict(x)
     print "House: " + str(x)
